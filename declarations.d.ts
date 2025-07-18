@@ -1,12 +1,9 @@
 import * as THREE from 'three';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
-// import { TextGeometry } from 'https://threejs.org/examples/jsm/geometries/TextGeometry.js';
-
 import { Object3DNode } from '@react-three/fiber'
 
 
 
-// Додати, якщо ще не підключено
 declare global {
     namespace JSX {
         interface IntrinsicElements {
@@ -16,6 +13,8 @@ declare global {
         }
     }
 }
+
+export { }
 
 
 // declare namespace JSX {
