@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 import Horizon from "./Horizon";
 import Reticle from "./Reticle";
@@ -25,21 +25,22 @@ export default function CompassScene() {
         }
 
         // Гіроскоп
-        window.addEventListener(
-            "deviceorientation",
-            (event: DeviceOrientationEvent) => {
-                if (cameraRef.current) {
-                    const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
-                    const beta = THREE.MathUtils.degToRad(event.beta || 0);
-                    const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
+        if (typeof window !== undefined) {
+            window.addEventListener(
+                "deviceorientation",
+                (event: DeviceOrientationEvent) => {
+                    if (cameraRef.current) {
+                        const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
+                        const beta = THREE.MathUtils.degToRad(event.beta || 0);
+                        const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
 
-                    const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
-                    cameraRef.current.quaternion.setFromEuler(euler);
-                }
-            },
-            true
-        );
-
+                        const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
+                        cameraRef.current.quaternion.setFromEuler(euler);
+                    }
+                },
+                true
+            );
+        }
         // GPS
         navigator.geolocation.getCurrentPosition(
             (pos) => {
@@ -53,7 +54,11 @@ export default function CompassScene() {
     };
 
     // Завантаження текстури зоряного неба
-    const starsTexture = new TextureLoader().load("/textures/stars.jpg");
+    let starsTexture: any
+    useEffect(() => {
+        starsTexture = new TextureLoader().load("/textures/stars.jpg");
+    }, []);
+
 
     return (
         <>

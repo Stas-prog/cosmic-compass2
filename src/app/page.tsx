@@ -1,4 +1,9 @@
-import CompassScene from "@/app/components/CompassScene";
+import dynamic from "next/dynamic";
+
+const CompassScene = dynamic(() => import("@/app/components/CompassScene"), {
+  ssr: false,
+});
+
 
 export default function Home() {
   return (
