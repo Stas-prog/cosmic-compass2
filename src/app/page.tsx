@@ -1,3 +1,5 @@
+"use client"
+
 import dynamic from "next/dynamic";
 
 const CompassScene = dynamic(() => import("@/app/components/CompassScene"), {
