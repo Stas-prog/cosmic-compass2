@@ -56,7 +56,7 @@ export default function CompassScene() {
     // Завантаження текстури зоряного неба
     let starsTexture: any
     useEffect(() => {
-        starsTexture = new TextureLoader().load("/textures/stars.jpg");
+        starsTexture = new TextureLoader().load("/textures/stars.png");
     }, []);
 
 
