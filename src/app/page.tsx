@@ -6,6 +6,9 @@ import * as THREE from "three";
 export default function Home() {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [granted, setGranted] = useState(false);
+  const [angles, setAngles] = useState({ alpha: 0, beta: 0, gamma: 0 });
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -18,6 +21,7 @@ export default function Home() {
       1000
     );
     camera.position.z = 0;
+    cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -40,35 +44,84 @@ export default function Home() {
           renderer.render(scene, camera);
         };
         animate();
-
-        // Гіроскоп
-        const handleOrientation = (event: DeviceOrientationEvent) => {
-          const alpha = (event.alpha ?? 0) * (Math.PI / 180);
-          const beta = (event.beta ?? 0) * (Math.PI / 180);
-          const gamma = (event.gamma ?? 0) * (Math.PI / 180);
-
-          const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
-          camera.quaternion.setFromEuler(euler);
-        };
-
-        window.addEventListener("deviceorientation", handleOrientation, true);
-      },
-      undefined,
-      (err) => {
-        console.error("Помилка завантаження текстури:", err);
       }
     );
 
     return () => {
-      if (renderer) {
-        renderer.dispose();
-      }
+      renderer.dispose();
     };
   }, []);
 
+  const enableCompass = async () => {
+    if (
+      typeof DeviceOrientationEvent !== "undefined" &&
+      (DeviceOrientationEvent as any).requestPermission
+    ) {
+      const permission = await (DeviceOrientationEvent as any).requestPermission();
+      if (permission !== "granted") return;
+    }
+    setGranted(true);
+
+    window.addEventListener("deviceorientation", (event) => {
+      if (!cameraRef.current) return;
+      const alpha = event.alpha ?? 0;
+      const beta = event.beta ?? 0;
+      const gamma = event.gamma ?? 0;
+
+      setAngles({ alpha, beta, gamma });
+
+      const euler = new THREE.Euler(
+        beta * (Math.PI / 180),
+        alpha * (Math.PI / 180),
+        -gamma * (Math.PI / 180),
+        "YXZ"
+      );
+      cameraRef.current.quaternion.setFromEuler(euler);
+    });
+  };
+
   return (
     <div ref={mountRef} style={{ width: "100vw", height: "100vh" }}>
-      {/* Приціл */}
+      {loaded && !granted && (
+        <button
+          onClick={enableCompass}
+          style={{
+            position: "fixed",
+            top: "20px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            padding: "10px 20px",
+            background: "black",
+            color: "white",
+            border: "2px solid white",
+            borderRadius: "8px",
+            zIndex: 10,
+          }}
+        >
+          Увімкнути компас
+        </button>
+      )}
+
+      {loaded && granted && (
+        <div
+          style={{
+            position: "fixed",
+            top: "10px",
+            left: "10px",
+            background: "rgba(0,0,0,0.6)",
+            color: "white",
+            padding: "8px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            zIndex: 10,
+          }}
+        >
+          α: {angles.alpha.toFixed(1)}°<br />
+          β: {angles.beta.toFixed(1)}°<br />
+          γ: {angles.gamma.toFixed(1)}°
+        </div>
+      )}
+
       {loaded && (
         <div
           style={{
