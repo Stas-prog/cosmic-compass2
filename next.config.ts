@@ -10,11 +10,15 @@ const nextConfig: NextConfig = {
       type: 'json'
     })
     return config
-  }
+  },
+  turbopack: {}
 
 };
 
+
+
 export default nextConfig;
+
 
 
 // /** @type {import('next').NextConfig} */
