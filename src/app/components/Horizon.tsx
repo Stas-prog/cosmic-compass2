@@ -4,7 +4,13 @@ import * as THREE from "three";
 export default function Horizon() {
     const geometry = useMemo(() => new THREE.CircleGeometry(500, 64), []);
     const material = useMemo(
-        () => new THREE.MeshBasicMaterial({ color: 0x0044ff, opacity: 0.3, transparent: true, side: THREE.DoubleSide }),
+        () =>
+            new THREE.MeshBasicMaterial({
+                color: 0x0044ff,
+                opacity: 0.3,
+                transparent: true,
+                side: THREE.DoubleSide
+            }),
         []
     );
 
