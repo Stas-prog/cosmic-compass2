@@ -1,158 +1,95 @@
 "use client";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useRef, useState, useEffect, useMemo } from "react";
-import * as THREE from "three";
-import Horizon from "./Horizon";
-import Reticle from "./Reticle";
-import { TextureLoader } from "three";
 
-// Константи для орбітальних розрахунків
-const EARTH_ORBIT_RADIUS = 149_600_000; // км, спрощено
-const SOLAR_SYSTEM_VECTOR = new THREE.Vector3(1, 0, 0).normalize(); // напрямок руху Сонячної системи
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
+import Reticle from "./Reticle";
+import { enableGyroscope } from "../utils/useGyroscope";
+import { getSunDirection } from "../utils/sunDirection";
+import { createSunMarker } from "../utils/createSunMarker";
 
 export default function CompassScene() {
-    const cameraRef = useRef<THREE.PerspectiveCamera>(null);
-    const [started, setStarted] = useState(false);
-    const [starsTexture, setStarsTexture] = useState<THREE.Texture | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const startGyroRef = useRef<(() => void) | null>(null);
 
-    // Завантаження текстури зоряного неба
     useEffect(() => {
-        const loader = new TextureLoader();
-        loader.load("/textures/stars.png", (texture) => {
-            setStarsTexture(texture);
-        });
-    }, []);
+        if (!containerRef.current) return;
 
-    const startCompass = async () => {
-        // iOS вимагає явний дозвіл
-        if (
-            typeof DeviceOrientationEvent !== "undefined" &&
-            typeof (DeviceOrientationEvent as any).requestPermission === "function"
-        ) {
-            const permission = await (DeviceOrientationEvent as any).requestPermission();
-            if (permission !== "granted") {
-                alert("Доступ до гіроскопа заборонено");
-                return;
-            }
-        }
+        // === SCENE ===
+        const scene = new THREE.Scene();
 
-        // Гіроскоп
-        if (typeof window !== "undefined") {
-            window.addEventListener(
-                "deviceorientation",
-                (event: DeviceOrientationEvent) => {
-                    if (cameraRef.current) {
-                        const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
-                        const beta = THREE.MathUtils.degToRad(event.beta || 0);
-                        const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
-
-                        const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
-                        cameraRef.current.quaternion.setFromEuler(euler);
-                    }
-                },
-                true
-            );
-        }
-
-        // GPS
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                console.log("GPS:", pos.coords.latitude, pos.coords.longitude);
-            },
-            (err) => console.warn("GPS error:", err),
-            { enableHighAccuracy: true }
+        // === CAMERA ===
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
         );
+        camera.position.set(0, 0, 0);
 
-        setStarted(true);
-    };
+        // === RENDERER ===
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        containerRef.current.appendChild(renderer.domElement);
 
-    // Маркери для Сонця, Землі та Сонячної системи
-    const sunRef = useRef<THREE.Mesh>(null);
-    const earthRef = useRef<THREE.Mesh>(null);
-    const solarSystemRef = useRef<THREE.Mesh>(null);
+        // === STARS BACKGROUND ===
+        const starsGeometry = new THREE.SphereGeometry(500, 64, 64);
+        const starsMaterial = new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            side: THREE.BackSide,
+        });
+        const stars = new THREE.Mesh(starsGeometry, starsMaterial);
+        scene.add(stars);
 
-    // Оновлення позицій маркерів кожні 10 хвилин (600000 мс)
-    useEffect(() => {
-        const updateMarkers = () => {
-            // Тут можна підставити реальні обчислення через астрономічні формули
-            const now = new Date().getTime() / 1000; // секунда від епохи
+        // === SUN MARKER ===
+        const sunDir = getSunDirection(); // Vector3
+        const sun = createSunMarker(sunDir);
+        scene.add(sun);
 
-            // Сонце – спрощено, завжди на векторі вперед
-            if (sunRef.current) {
-                sunRef.current.position.set(0, 0, -100);
-            }
+        // === GYROSCOPE ===
+        startGyroRef.current = enableGyroscope(camera);
 
-            // Земля – обертання навколо Сонця
-            if (earthRef.current) {
-                const angle = (now / 86400) * (2 * Math.PI) / 365; // оберт за рік
-                earthRef.current.position.set(
-                    EARTH_ORBIT_RADIUS * Math.cos(angle) / 1e6,
-                    0,
-                    EARTH_ORBIT_RADIUS * Math.sin(angle) / 1e6
-                );
-            }
-
-            // Сонячна система – фіксований вектор
-            if (solarSystemRef.current) {
-                solarSystemRef.current.position.copy(SOLAR_SYSTEM_VECTOR.clone().multiplyScalar(50));
-            }
+        // === RESIZE ===
+        const onResize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         };
+        window.addEventListener("resize", onResize);
 
-        updateMarkers();
-        const interval = setInterval(updateMarkers, 600_000);
-        return () => clearInterval(interval);
+        // === ANIMATE ===
+        const animate = () => {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        };
+        animate();
+
+        // === CLEANUP ===
+        return () => {
+            window.removeEventListener("resize", onResize);
+            sun.geometry.dispose();
+            (sun.material as THREE.Material).dispose();
+            stars.geometry.dispose();
+            (stars.material as THREE.Material).dispose();
+            renderer.dispose();
+            containerRef.current?.removeChild(renderer.domElement);
+        };
     }, []);
 
     return (
-        <>
-            {!started && (
-                <button
-                    onClick={startCompass}
-                    style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        padding: "20px 40px",
-                        fontSize: "18px",
-                        zIndex: 20
-                    }}
-                >
-                    Почати
-                </button>
-            )}
-
-            <Canvas>
-                <perspectiveCamera ref={cameraRef} position={[0, 0, 0]} fov={75} />
-
-                <Horizon />
-
-                {/* Сфера зоряного неба */}
-                {starsTexture && (
-                    <mesh>
-                        <sphereGeometry args={[500, 64, 64]} />
-                        <meshBasicMaterial map={starsTexture} side={THREE.BackSide} />
-                    </mesh>
-                )}
-
-                {/* Маркери */}
-                <mesh ref={sunRef}>
-                    <sphereGeometry args={[2, 16, 16]} />
-                    <meshBasicMaterial color="yellow" />
-                </mesh>
-
-                <mesh ref={earthRef}>
-                    <sphereGeometry args={[1.5, 16, 16]} />
-                    <meshBasicMaterial color="red" />
-                </mesh>
-
-                <mesh ref={solarSystemRef}>
-                    <sphereGeometry args={[1.5, 16, 16]} />
-                    <meshBasicMaterial color="green" />
-                </mesh>
-            </Canvas>
-
+        <div ref={containerRef} style={{ width: "100vw", height: "100vh" }}>
             <Reticle />
-        </>
+            <button
+                onClick={() => startGyroRef.current?.()}
+                style={{
+                    position: "absolute",
+                    bottom: 20,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    zIndex: 10,
+                }}
+            >
+                Enable motion
+            </button>
+        </div>
     );
 }
