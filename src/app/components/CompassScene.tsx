@@ -12,6 +12,8 @@ import { getSunDirection } from "../utils/sunDirection";
 import { createSunMarker } from "../utils/createSunMarker";
 import { getEarthOrbitDirection } from "../utils/earthOrbitDirection";
 import { snapIfClose } from "../utils/snapToTarget";
+import HudCoords from "./HudCoords";
+
 
 function SceneCore() {
     const { camera, scene } = useThree();
@@ -92,6 +94,7 @@ export default function CompassScene() {
                 <SceneCore />
             </Canvas>
             <Reticle />
+            <HudCoords />
         </>
     );
 }
