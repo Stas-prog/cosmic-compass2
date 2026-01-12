@@ -1,100 +1,194 @@
 "use client";
 
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-import Horizon from "./Horizon";
-import Reticle from "./Reticle";
+// utils
+import { enableGyroscope } from "../utils/gyro";
+import { createStarSphere } from "../utils/stars";
+import { projectToHud } from "../utils/projectToHud";
+import { createMarker } from "../utils/markers";
+import { getSunDirection } from "../utils/sun";
+import { getEarthOrbitDirection } from "../utils/earthOrbit";
+import { getSolarSystemMotionDirection } from "../utils/solarSystemMotion";
+import { isSnapped } from "../utils/snap";
+import { startAstroTimer } from "../utils/astroTimer";
+import { vectorToAzAlt } from "../utils/vectorToAzAlt";
 
-import { enableGyroscope } from "../utils/useGyroscope";
-import { getSunDirection } from "../utils/sunDirection";
-import { createSunMarker } from "../utils/createSunMarker";
-import { getEarthOrbitDirection } from "../utils/earthOrbitDirection";
-import { snapIfClose } from "../utils/snapToTarget";
-import HudCoords from "./HudCoords";
+type Props = {
+    onCoords?: (azimuth: number, altitude: number) => void;
+};
 
+export default function CompassScene({ onCoords }: Props) {
+    const mountRef = useRef<HTMLDivElement | null>(null);
 
-function SceneCore() {
-    const { camera, scene } = useThree();
-
-    const sunRef = useRef<THREE.Object3D | null>(null);
-    const sunDirRef = useRef<THREE.Vector3 | null>(null);
-
-    // === GYROSCOPE ===
     useEffect(() => {
-        if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
-            enableGyroscope(camera as THREE.PerspectiveCamera);
-        }
-    }, [camera]);
+        if (!mountRef.current) return;
 
+        /* =======================
+           SCENE
+        ======================= */
+        const scene = new THREE.Scene();
 
-    // === GPS + ASTRONOMY ===
-    useEffect(() => {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const { latitude, longitude } = pos.coords;
-
-                // ☀️ SUN
-                const sunDir = getSunDirection(latitude, longitude);
-                sunDirRef.current = sunDir;
-
-                const sun = createSunMarker(sunDir);
-                sunRef.current = sun;
-                scene.add(sun);
-
-                // 🌍 EARTH ORBIT DIRECTION
-                const orbitDir = getEarthOrbitDirection(sunDir);
-                const orbitArrow = new THREE.ArrowHelper(
-                    orbitDir,
-                    new THREE.Vector3(0, 0, 0),
-                    200,
-                    0x00ffcc
-                );
-                scene.add(orbitArrow);
-            },
-            (err) => console.warn("GPS error:", err),
-            { enableHighAccuracy: true }
+        /* =======================
+           CAMERA
+        ======================= */
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            3000
         );
-    }, [scene]);
+        camera.position.set(0, 0, 0.1);
 
-    // === SNAP TO SUN ===
-    useFrame(() => {
-        if (!sunRef.current || !sunDirRef.current) return;
+        /* =======================
+           RENDERER
+        ======================= */
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        mountRef.current.appendChild(renderer.domElement);
 
-        const camDir = new THREE.Vector3();
-        camera.getWorldDirection(camDir);
+        /* =======================
+           GYROSCOPE
+        ======================= */
+        const stopGyro = enableGyroscope(camera);
 
-        if (snapIfClose(camDir, sunDirRef.current, 2)) {
-            camera.lookAt(sunRef.current.position);
+        /* =======================
+           STARS (BIG SPHERE)
+        ======================= */
+        const stars = createStarSphere("/textures/stars.png");
+        scene.add(stars);
+
+        /* =======================
+           HUD GROUP (SMALL SPHERE)
+        ======================= */
+        const HUD_RADIUS = 10;
+        const hudGroup = new THREE.Group();
+        scene.add(hudGroup);
+
+        /* =======================
+           MARKERS
+        ======================= */
+        const sunMarker = createMarker({
+            color: 0xffcc00,
+            size: 0.4,
+            name: "sun",
+        });
+
+        const earthOrbitMarker = createMarker({
+            color: 0x00ffcc,
+            size: 0.3,
+            name: "earthOrbit",
+        });
+
+        const solarSystemMarker = createMarker({
+            color: 0xff66ff,
+            size: 0.35,
+            name: "solarSystem",
+        });
+
+        hudGroup.add(sunMarker, earthOrbitMarker, solarSystemMarker);
+
+        /* =======================
+           DIRECTIONS
+        ======================= */
+        let sunDir = new THREE.Vector3();
+        let earthOrbitDir = new THREE.Vector3();
+        let solarSystemDir = getSolarSystemMotionDirection();
+
+        /* =======================
+           GEO + ASTRO TIMER
+        ======================= */
+        let stopAstroTimer: (() => void) | null = null;
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+
+                    stopAstroTimer = startAstroTimer(() => {
+                        sunDir = getSunDirection(latitude, longitude);
+                        earthOrbitDir = getEarthOrbitDirection(sunDir);
+
+                        sunMarker.position.copy(
+                            projectToHud(sunDir, HUD_RADIUS)
+                        );
+
+                        earthOrbitMarker.position.copy(
+                            projectToHud(earthOrbitDir, HUD_RADIUS)
+                        );
+
+                        solarSystemMarker.position.copy(
+                            projectToHud(solarSystemDir, HUD_RADIUS)
+                        );
+                    });
+                },
+                (err) => {
+                    console.warn("Geolocation error:", err);
+                },
+                { enableHighAccuracy: true }
+            );
         }
-    });
+
+        /* =======================
+           ANIMATION LOOP
+        ======================= */
+        const camDir = new THREE.Vector3();
+
+        const animate = () => {
+            requestAnimationFrame(animate);
+
+            camera.getWorldDirection(camDir);
+
+            const { azimuth, altitude } = vectorToAzAlt(camDir);
+            onCoords?.(azimuth, altitude);
+
+
+            // SNAP: Sun example
+            if (sunDir.lengthSq() > 0) {
+                const snapped = isSnapped(camDir, sunDir, 2);
+                (sunMarker.material as THREE.MeshBasicMaterial).color.set(
+                    snapped ? 0xffaa00 : 0xffcc00
+                );
+            }
+
+            renderer.render(scene, camera);
+        };
+
+        animate();
+
+        /* =======================
+           RESIZE
+        ======================= */
+        const onResize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+        window.addEventListener("resize", onResize);
+
+        /* =======================
+           CLEANUP
+        ======================= */
+        return () => {
+            window.removeEventListener("resize", onResize);
+            stopGyro?.();
+            stopAstroTimer?.();
+            renderer.dispose();
+            mountRef.current?.removeChild(renderer.domElement);
+        };
+    }, []);
 
     return (
-        <>
-            <Horizon />
-
-            {/* 🌌 STAR SKY */}
-            <mesh>
-                <sphereGeometry args={[500, 64, 64]} />
-                <meshBasicMaterial
-                    map={new THREE.TextureLoader().load("/textures/stars.png")}
-                    side={THREE.BackSide}
-                />
-            </mesh>
-        </>
+        <div
+            ref={mountRef}
+            style={{
+                position: "fixed",
+                inset: 0,
+                overflow: "hidden",
+            }}
+        />
     );
 }
 
-export default function CompassScene() {
-    return (
-        <>
-            <Canvas>
-                <perspectiveCamera position={[0, 0, 0]} fov={75} />
-                <SceneCore />
-            </Canvas>
-            <Reticle />
-            <HudCoords />
-        </>
-    );
-}
