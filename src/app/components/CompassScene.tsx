@@ -134,7 +134,11 @@ export default function CompassScene({ onCoords }: Props) {
             );
         }
 
-        sunMarker.position.copy(projectToHud(sunDir, HUD_RADIUS));
+        // sunMarker.position.copy(projectToHud(sunDir, HUD_RADIUS));
+        sunMarker.position.set(1, 0, 0);
+        console.log("sunDir", sunDir.x, sunDir.y, sunDir.z);
+
+
 
         /* =======================
            ANIMATION LOOP
