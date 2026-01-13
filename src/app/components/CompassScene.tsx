@@ -65,6 +65,8 @@ export default function CompassScene({ onCoords }: Props) {
         ======================= */
         const HUD_RADIUS = 3;
         const hudGroup = new THREE.Group();
+        hudGroup.position.set(0, 0, -3);
+
         camera.add(hudGroup);
         scene.add(camera);
 
@@ -76,6 +78,8 @@ export default function CompassScene({ onCoords }: Props) {
             size: 0.4,
             name: "sun",
         });
+        sunMarker.position.set(0, 0, 0);
+
 
         const earthOrbitMarker = createMarker({
             color: 0x00ffcc,
