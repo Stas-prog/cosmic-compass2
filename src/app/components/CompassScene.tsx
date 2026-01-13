@@ -93,10 +93,6 @@ export default function CompassScene({ onCoords }: Props) {
 
         hudGroup.add(sunMarker, earthOrbitMarker, solarSystemMarker);
 
-        sunMarker.position.set(0, 0, 0);
-        solarSystemMarker.position.set(0.6, 0, 0);
-        earthOrbitMarker.position.set(-0.6, 0, 0);
-
 
         /* =======================
            DIRECTIONS
@@ -141,8 +137,6 @@ export default function CompassScene({ onCoords }: Props) {
 
         // sunMarker.position.copy(projectToHud(sunDir, HUD_RADIUS));
         sunMarker.position.set(1, 0, 0);
-        console.log("sunDir", sunDir.x, sunDir.y, sunDir.z);
-
 
 
         /* =======================
@@ -158,15 +152,31 @@ export default function CompassScene({ onCoords }: Props) {
             const { azimuth, altitude } = vectorToAzAlt(camDir);
             onCoords?.(azimuth, altitude);
 
-            hudGroup.rotation.y += 0.001;
+            // hudGroup.rotation.y += 0.001;
 
             // SNAP: Sun example
+            // if (sunDir.lengthSq() > 0) {
+            //     const snapped = isSnapped(camDir, sunDir, 2);
+            //     (sunMarker.material as THREE.MeshBasicMaterial).color.set(
+            //         snapped ? 0xffaa00 : 0xffcc00
+            //     );
+            // }
+
             if (sunDir.lengthSq() > 0) {
-                const snapped = isSnapped(camDir, sunDir, 2);
-                (sunMarker.material as THREE.MeshBasicMaterial).color.set(
-                    snapped ? 0xffaa00 : 0xffcc00
+                sunMarker.position.copy(
+                    projectToHud(sunDir, HUD_RADIUS)
                 );
             }
+
+            if (earthOrbitDir.lengthSq() > 0) {
+                earthOrbitMarker.position.copy(
+                    projectToHud(earthOrbitDir, HUD_RADIUS)
+                );
+            }
+
+            solarSystemMarker.position.copy(
+                projectToHud(solarSystemDir, HUD_RADIUS)
+            );
 
             renderer.render(scene, camera);
         };
