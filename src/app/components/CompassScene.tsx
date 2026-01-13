@@ -78,8 +78,6 @@ export default function CompassScene({ onCoords }: Props) {
             size: 0.4,
             name: "sun",
         });
-        sunMarker.position.set(0, 0, 0);
-
 
         const earthOrbitMarker = createMarker({
             color: 0x00ffcc,
@@ -136,6 +134,8 @@ export default function CompassScene({ onCoords }: Props) {
             );
         }
 
+        sunMarker.position.copy(projectToHud(sunDir, HUD_RADIUS));
+
         /* =======================
            ANIMATION LOOP
         ======================= */
@@ -149,6 +149,7 @@ export default function CompassScene({ onCoords }: Props) {
             const { azimuth, altitude } = vectorToAzAlt(camDir);
             onCoords?.(azimuth, altitude);
 
+            hudGroup.rotation.y += 0.001;
 
             // SNAP: Sun example
             if (sunDir.lengthSq() > 0) {
