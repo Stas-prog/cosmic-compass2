@@ -93,6 +93,11 @@ export default function CompassScene({ onCoords }: Props) {
 
         hudGroup.add(sunMarker, earthOrbitMarker, solarSystemMarker);
 
+        sunMarker.position.set(0, 0, 0);
+        solarSystemMarker.position.set(0.6, 0, 0);
+        earthOrbitMarker.position.set(-0.6, 0, 0);
+
+
         /* =======================
            DIRECTIONS
         ======================= */
