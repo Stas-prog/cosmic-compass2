@@ -63,9 +63,10 @@ export default function CompassScene({ onCoords }: Props) {
         /* =======================
            HUD GROUP (SMALL SPHERE)
         ======================= */
-        const HUD_RADIUS = 10;
+        const HUD_RADIUS = 3;
         const hudGroup = new THREE.Group();
-        scene.add(hudGroup);
+        camera.add(hudGroup);
+        scene.add(camera);
 
         /* =======================
            MARKERS

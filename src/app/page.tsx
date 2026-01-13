@@ -18,6 +18,21 @@ export default function Page() {
       />
 
       <HudCoords azimuth={azimuth} altitude={altitude} />
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 32,
+          height: 32,
+          border: "2px solid white",
+          borderRadius: "50%",
+          pointerEvents: "none",
+          zIndex: 30,
+        }}
+      />
+
     </main>
   );
 }
