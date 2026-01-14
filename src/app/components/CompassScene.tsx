@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import * as THREE from "three";
 
 // utils
@@ -14,12 +14,20 @@ import { getSolarSystemMotionDirection } from "../utils/solarSystemMotion";
 import { isSnapped } from "../utils/snap";
 import { startAstroTimer } from "../utils/astroTimer";
 import { vectorToAzAlt } from "../utils/vectorToAzAlt";
+import { worldToCamera } from "../utils/worldToCamera";
+import { projectToScreen } from "../utils/projectToScreen";
+import { isInsideViewport } from "../utils/isInsideViewport";
+import { getArrowDirection } from "../utils/getArrowDirection";
+
+
 
 type Props = {
     onCoords?: (azimuth: number, altitude: number) => void;
+    onSunArrow?: (angle: number | null) => void;
 };
 
-export default function CompassScene({ onCoords }: Props) {
+
+export default function CompassScene({ onCoords, onSunArrow }: Props) {
     const mountRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
@@ -142,15 +150,32 @@ export default function CompassScene({ onCoords }: Props) {
         /* =======================
            ANIMATION LOOP
         ======================= */
-        const camDir = new THREE.Vector3();
+        const viewDir = new THREE.Vector3();
 
         const animate = () => {
             requestAnimationFrame(animate);
 
-            camera.getWorldDirection(camDir);
+            camera.getWorldDirection(viewDir);
 
-            const { azimuth, altitude } = vectorToAzAlt(camDir);
+            const { azimuth, altitude } = vectorToAzAlt(viewDir);
             onCoords?.(azimuth, altitude);
+
+            const viewport = { width: window.innerWidth, height: window.innerHeight };
+
+            const sunCamDir = worldToCamera(sunDir, camera);
+            const screenPos = projectToScreen(sunCamDir, camera, viewport);
+
+            let arrowAngle: number | null = null;
+
+            if (!isInsideViewport(screenPos, viewport)) {
+                arrowAngle = getArrowDirection(screenPos, viewport);
+            }
+
+            // тут прокидаєш arrowAngle в state / callback
+            onSunArrow?.(arrowAngle);
+
+            // Тимчасовий дебаг:
+            console.log("Sun screen:", screenPos);
 
             // hudGroup.rotation.y += 0.001;
 
